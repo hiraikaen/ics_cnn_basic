@@ -63,7 +63,7 @@ for i in range(MAX_COEF_F):
     data_box += buf_str
 
 
-def compose_signals(label, max_coef_f, attack=False, attack_rate=0.2, visualize=False, attack_offset=False, offset_idx=None, offset_vol=None):
+def compose_signals(label, max_coef_f, attack=False, attack_rate=0.2, visualize=False, attack_offset=False, offset_idx=None, offset_vol=None, attack_noise=False, noise_vol=None):
     labels = []
             
     plt.figure()
@@ -75,17 +75,20 @@ def compose_signals(label, max_coef_f, attack=False, attack_rate=0.2, visualize=
         if attack_offset and i == offset_idx:
             t, data = bit_signal_noise(coef_f=coef_f, cycle=cycle, rate=rate, offset=offset_vol)
             print('   >>> adding offset:', offset_vol, 'to_idx:', offset_idx)
+        #generate attack noise signal
+        elif attack_noise:
+            t, data = bit_signal_noise(coef_f=coef_f, cycle=cycle, rate=rate, level_noise=noise_vol)
         #generate normal, abnormal_zeroba signal
         else:
             t, data = bit_signal_noise(coef_f=coef_f, cycle=cycle, rate=rate)
 
 
         #generate labels_basic
-        buf_label = [label]*len(data)
+        buf_label = [0]*len(data)
         labels.append(buf_label)
 
         #add label based on categories
-        #...
+        #...in following if-states...
             
         #add abnormal_zerobar
         if attack:
@@ -94,14 +97,19 @@ def compose_signals(label, max_coef_f, attack=False, attack_rate=0.2, visualize=
             bar = 10
             for idx in rand_spots:
                 if idx+bar < len(data):
-                    data[idx:idx+bar] = 0
+                    data[idx:idx+bar] = 0 #value attack 0
+                    labels[i][idx:idx+bar] = [label]*bar #means attack-label 1
             
             print('attack', data[:10], type(data), max(data), min(data))
 
-        #do nothing on offset
-        elif offset_idx != None:
+        elif attack_offset and i == offset_idx:
+            labels[i][:] = [label]*len(data)
             print('attack offset', data[:10], type(data), max(data), min(data))
 
+        elif attack_noise: #todo idx
+            labels[i][:] = [label]*len(data)
+            print('attack noise', data[:10], type(data), max(data), min(data))
+            
         #do nothing on normal
         else:
             print('normal', data[:10], type(data), max(data), min(data))
@@ -121,6 +129,9 @@ def compose_signals(label, max_coef_f, attack=False, attack_rate=0.2, visualize=
         elif offset_idx != None:
             print('save attack_offset...')
             plt.savefig('abnormal_offset_composed.pdf')            
+        elif attack_noise:
+            print('save attack_noise...')
+            plt.savefig('abnormal_noise_composed.pdf')            
         else:
             print('save normal...')
             plt.savefig('normal_composed.pdf')
@@ -142,6 +153,7 @@ def compose_signals(label, max_coef_f, attack=False, attack_rate=0.2, visualize=
 seed=0
 
 #compose normal signal
+seed+=1; np.random.seed(seed)
 normal_data, normal_labels = compose_signals(label=0, max_coef_f=MAX_COEF_F, attack=False, visualize=True)
 
 seed+=1; np.random.seed(seed)
@@ -152,12 +164,20 @@ seed+=1; np.random.seed(seed)
 abnormal_offset_train_data, abnormal_offset_train_labels = compose_signals(label=2, max_coef_f=MAX_COEF_F, attack=False, attack_rate=0.0, visualize=True, attack_offset=True, offset_idx=1, offset_vol=20)
 
 seed+=1; np.random.seed(seed)
+abnormal_noise_train_data, abnormal_noise_train_labels = compose_signals(label=3, max_coef_f=MAX_COEF_F, attack=False, visualize=True, attack_noise=True, noise_vol=1.0)#normal:1.5, bigger, better
+
+
+seed+=1; np.random.seed(seed)
 normal_test_data, normal_test_labels = compose_signals(label=0, max_coef_f=MAX_COEF_F, attack=False, visualize=True)
 #compose abnormal signal (by zero bar noise)
 abnormal_test_data, abnormal_test_labels = compose_signals(label=1, max_coef_f=MAX_COEF_F, attack=True, attack_rate=0.005, visualize=True)
 
 seed+=1; np.random.seed(seed)
 abnormal_offset_test_data, abnormal_offset_test_labels = compose_signals(label=2, max_coef_f=MAX_COEF_F, attack=False, attack_rate=0.0, visualize=True, attack_offset=True, offset_idx=1, offset_vol=20)
+
+seed+=1; np.random.seed(seed)
+abnormal_noise_test_data, abnormal_noise_test_labels = compose_signals(label=3, max_coef_f=MAX_COEF_F, attack=False, visualize=True, attack_noise=True, noise_vol=1.0)#normal:1.5 bigger, better
+
 
 #todo
 #compose abnormal signal (by latency offset)
@@ -217,23 +237,26 @@ normal_images = make_images(normal_data, width, normal_labels)#, 0)
 #make abnormal_data to images
 abnormal_images = make_images(abnormal_data, width, abnormal_labels)#, 1)
 abnormal_offset_train_images =  make_images(abnormal_offset_train_data, width, abnormal_offset_train_labels)#, 2)
+abnormal_noise_train_images =  make_images(abnormal_noise_train_data, width, abnormal_noise_train_labels)#, 2)
 
 #make normal_data to images test
 normal_test_images = make_images(normal_test_data, width, normal_test_labels)#, 0)
 #make abnormal_data to images test
 abnormal_test_images = make_images(abnormal_test_data, width, abnormal_test_labels)#, 1)
-abnormal_offset_test_images =  make_images(abnormal_offset_test_data, width, abnormal_offset_test_labels)#, 2)
+abnormal_noise_test_images =  make_images(abnormal_noise_test_data, width, abnormal_noise_test_labels)#, 2)
 
 print('writing csv files...')
 with open("ics_train.csv", "w") as f:
     writer = csv.writer(f)
     writer.writerows(normal_images)
-    #writer.writerows(abnormal_images)
-    writer.writerows(abnormal_offset_train_images)
+    # writer.writerows(abnormal_images)
+    # writer.writerows(abnormal_offset_train_images)
+    writer.writerows(abnormal_noise_train_images)
 
 #test data == train data same temporarily
 with open("ics_test.csv", "w") as f:
     writer = csv.writer(f)
     writer.writerows(normal_test_images)
-    #writer.writerows(abnormal_test_images)
-    writer.writerows(abnormal_offset_test_images)
+    # writer.writerows(abnormal_test_images)
+    # writer.writerows(abnormal_offset_test_images)
+    writer.writerows(abnormal_noise_test_images)

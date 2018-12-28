@@ -45,7 +45,7 @@ else:
     SIZE_X = int(200*COEF)
     SIZE_Y = 4
     batch_size = 16
-    n_classes = 3#2
+    n_classes = 4#2
 
     
 train = pd.read_csv(filename_train)
@@ -288,7 +288,7 @@ def train(epoch, train_loader):
         loss.backward()
         optimizer.step()
         
-        if (batch_idx + 1)% 100 == 0:
+        if (batch_idx + 1)% 50 == 0:
             print('Train Epoch: {} [{}/{} ({:.0f}%)]\tLoss: {:.6f}'.format(
                 epoch, (batch_idx + 1) * len(data), len(train_loader.dataset),
                 100. * (batch_idx + 1) / len(train_loader), loss.data))#[0]
