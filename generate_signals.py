@@ -10,7 +10,6 @@ coef = 6
 width = 200*coef
 
 def bit_signal(t):
-    #return signal.square(2*np.pi*f*t, duty=0.5).astype('float64')
     return signal.square(t).astype('float64')
     
 np.random.seed(2)
@@ -38,16 +37,6 @@ N = 10
 
 #plt.figure()
 
-# def bit_signal_noise(coef_f, cycle=5, rate=100, level_noise=1.5):
-#     t = np.linspace(0, 2*np.pi*cycle, 2*np.pi*cycle*rate, endpoint=False)
-#     noise = np.random.uniform(-pow(0.1,level_noise), pow(0.1, level_noise), [1,int(2*np.pi*cycle*rate)])[0]
-#     data = signal.square(t/pow(2,coef_f)) + noise
-#     data = data + abs(min(data))
-#     data = data/max(data)*255.0
-#     data = data.astype(int)
-    
-#     return t, data
-
 def bit_signal_noise(coef_f, cycle=5, rate=100, level_noise=1.5, offset=0):
     t = np.linspace(0, 2*np.pi*cycle, 2*np.pi*cycle*rate, endpoint=False)
     t = t+offset
@@ -61,11 +50,12 @@ def bit_signal_noise(coef_f, cycle=5, rate=100, level_noise=1.5, offset=0):
 
 level_noise = 1.5
 rate = 20 #resolution per cycle
-max_coef_f = 4
+#max_coef_f = 4
+MAX_COEF_F = 4
 cycle = 50
 
 data_box = ''
-for i in range(max_coef_f):
+for i in range(MAX_COEF_F):
     for j in range(int(rate)):
         buf_str = ','+str(i)+'x'+str(j)
         data_box += buf_str
@@ -73,24 +63,31 @@ for i in range(max_coef_f):
     data_box += buf_str
 
 
-def compose_signals(max_coef_f, attack=False, attack_rate=0.2, visualize=False, offset_idx=None, offset_vol=None):
+def compose_signals(label, max_coef_f, attack=False, attack_rate=0.2, visualize=False, attack_offset=False, offset_idx=None, offset_vol=None):
+    labels = []
+            
     plt.figure()
     composed_data = list()
     for i in range(max_coef_f):
         coef_f = i
-
-        # if i == offset_idx:
-        #     offset_vol = offset_vol
-        #     print('   >>> adding offset:', offset_vol, 'to_idx:', offset_idx)
-        # else:
-        #     offset_vol = 0
-
-        if i == offset_idx:
+        
+        #generate offset signal
+        if attack_offset and i == offset_idx:
             t, data = bit_signal_noise(coef_f=coef_f, cycle=cycle, rate=rate, offset=offset_vol)
             print('   >>> adding offset:', offset_vol, 'to_idx:', offset_idx)
+        #generate normal, abnormal_zeroba signal
         else:
             t, data = bit_signal_noise(coef_f=coef_f, cycle=cycle, rate=rate)
+
+
+        #generate labels_basic
+        buf_label = [label]*len(data)
+        labels.append(buf_label)
+
+        #add label based on categories
+        #...
             
+        #add abnormal_zerobar
         if attack:
             #add max value in signal in random spots
             rand_spots = np.random.randint(0, len(data), size=int(len(data)*attack_rate))
@@ -101,12 +98,13 @@ def compose_signals(max_coef_f, attack=False, attack_rate=0.2, visualize=False, 
             
             print('attack', data[:10], type(data), max(data), min(data))
 
+        #do nothing on offset
         elif offset_idx != None:
             print('attack offset', data[:10], type(data), max(data), min(data))
 
+        #do nothing on normal
         else:
             print('normal', data[:10], type(data), max(data), min(data))
-            
             
         if visualize:
             plt.subplot(max_coef_f,1,coef_f+1)
@@ -127,7 +125,10 @@ def compose_signals(max_coef_f, attack=False, attack_rate=0.2, visualize=False, 
             print('save normal...')
             plt.savefig('normal_composed.pdf')
     print('len of composed_data:', len(composed_data)*len(composed_data[0]))
-    return composed_data
+
+    print('tmp/labels:', labels)
+    
+    return composed_data, labels
     
 #slice and insert data
 # normal_data = list()
@@ -138,22 +139,25 @@ def compose_signals(max_coef_f, attack=False, attack_rate=0.2, visualize=False, 
 #     plt.plot(t, data)
 #     normal_data.append(data)
 
+seed=0
+
 #compose normal signal
-normal_data = compose_signals(max_coef_f, attack=False, visualize=True)
+normal_data, normal_labels = compose_signals(label=0, max_coef_f=MAX_COEF_F, attack=False, visualize=True)
+
+seed+=1; np.random.seed(seed)
 #compose abnormal signal (by zero bar noise)
-abnormal_data = compose_signals(max_coef_f, attack=True, attack_rate=0.005, visualize=True)
+abnormal_data, abnormal_labels = compose_signals(label=1, max_coef_f=MAX_COEF_F, attack=True, attack_rate=0.005, visualize=True)
 
-np.random.seed(3)
-normal_test_data = compose_signals(max_coef_f, attack=False, visualize=True)
+seed+=1; np.random.seed(seed)
+abnormal_offset_train_data, abnormal_offset_train_labels = compose_signals(label=2, max_coef_f=MAX_COEF_F, attack=False, attack_rate=0.0, visualize=True, attack_offset=True, offset_idx=1, offset_vol=20)
+
+seed+=1; np.random.seed(seed)
+normal_test_data, normal_test_labels = compose_signals(label=0, max_coef_f=MAX_COEF_F, attack=False, visualize=True)
 #compose abnormal signal (by zero bar noise)
-abnormal_test_data = compose_signals(max_coef_f, attack=True, attack_rate=0.005, visualize=True)
+abnormal_test_data, abnormal_test_labels = compose_signals(label=1, max_coef_f=MAX_COEF_F, attack=True, attack_rate=0.005, visualize=True)
 
-np.random.seed(4)
-abnormal_offset_train_data = compose_signals(max_coef_f, attack=False, attack_rate=0.0, visualize=True, offset_idx=1, offset_vol=20)
-
-np.random.seed(5)
-abnormal_offset_test_data = compose_signals(max_coef_f, attack=False, attack_rate=0.0, visualize=True, offset_idx=1, offset_vol=20)
-
+seed+=1; np.random.seed(seed)
+abnormal_offset_test_data, abnormal_offset_test_labels = compose_signals(label=2, max_coef_f=MAX_COEF_F, attack=False, attack_rate=0.0, visualize=True, attack_offset=True, offset_idx=1, offset_vol=20)
 
 #todo
 #compose abnormal signal (by latency offset)
@@ -177,11 +181,18 @@ plt.savefig('tmp.pdf')
 #   add n to data
 #   add buf to data
 
-def make_images(ts_data, width, label):
+def make_images(ts_data, width, labels):
     time_start = time.time()
     images = list()
+    
     for t in range(len(ts_data[0])-width):
+        buf_label = list()
+        for s in range(len(ts_data)):
+            buf_label.append(max(labels[s][t:t+width]))
+        label = max(buf_label) #during 4 signals
+        
         buf = [label]
+        #buf = []
         #for s in range(len(ts_data)):
         #print('len(ts_data) == 4?', len(ts_data), 't:', t, t+width)
         #input('ok?')
@@ -202,27 +213,27 @@ def make_images(ts_data, width, label):
     return images
 
 #make normal_data to images
-normal_images = make_images(normal_data, width, 0)
+normal_images = make_images(normal_data, width, normal_labels)#, 0)
 #make abnormal_data to images
-abnormal_images = make_images(abnormal_data, width, 1)
-abnormal_offset_train_images =  make_images(abnormal_offset_train_data, width, 2)
+abnormal_images = make_images(abnormal_data, width, abnormal_labels)#, 1)
+abnormal_offset_train_images =  make_images(abnormal_offset_train_data, width, abnormal_offset_train_labels)#, 2)
 
 #make normal_data to images test
-normal_test_images = make_images(normal_test_data, width, 0)
+normal_test_images = make_images(normal_test_data, width, normal_test_labels)#, 0)
 #make abnormal_data to images test
-abnormal_test_images = make_images(abnormal_test_data, width, 1)
-abnormal_offset_test_images =  make_images(abnormal_offset_test_data, width, 2)
+abnormal_test_images = make_images(abnormal_test_data, width, abnormal_test_labels)#, 1)
+abnormal_offset_test_images =  make_images(abnormal_offset_test_data, width, abnormal_offset_test_labels)#, 2)
 
 print('writing csv files...')
 with open("ics_train.csv", "w") as f:
     writer = csv.writer(f)
     writer.writerows(normal_images)
-    writer.writerows(abnormal_images)
+    #writer.writerows(abnormal_images)
     writer.writerows(abnormal_offset_train_images)
 
 #test data == train data same temporarily
 with open("ics_test.csv", "w") as f:
     writer = csv.writer(f)
     writer.writerows(normal_test_images)
-    writer.writerows(abnormal_test_images)
+    #writer.writerows(abnormal_test_images)
     writer.writerows(abnormal_offset_test_images)

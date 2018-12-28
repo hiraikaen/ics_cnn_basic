@@ -328,15 +328,21 @@ for epoch in range(n_epochs):
     print('[test]')
     evaluate(test_loader)
 
+#finished
 #0.make function to generate abnormal status #ok
 #1.confirm raw data that >0 #ok
 #2.save ics data to csv #ok
 #3.training #ok
+
+#future planned
 #9.confirm no_grad option
+#4. test data, add noise in every label-1 data
+
+#todo
 #4. data visualize function
 #4. kernel visualize
-#4. test data, add noise in every label-1 data
-        
+
+
 #normalization
 #xtrain = train.iloc[:,1:]
 #xtest = test.iloc[:,1:]
